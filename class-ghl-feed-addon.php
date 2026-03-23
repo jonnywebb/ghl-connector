@@ -3,7 +3,7 @@ GFForms::include_feed_addon_framework();
 
 class GHLFeedAddOn extends GFFeedAddOn {
 
-    protected $_version = '2.2';
+    protected $_version = '2.3';
     protected $_min_gravityforms_version = '2.5';
     protected $_slug = 'ghl-connector';
     protected $_path = 'ghl-connector/ghl-connector.php';
@@ -20,6 +20,9 @@ class GHLFeedAddOn extends GFFeedAddOn {
         return self::$_instance;
     }
 
+    /**
+     * Settings Page with updated Scopes
+     */
     public function plugin_settings_fields() {
         return array(
             array(
@@ -27,11 +30,12 @@ class GHLFeedAddOn extends GFFeedAddOn {
                 'description' => '
                     <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #2271b1; margin-bottom: 20px;">
                         <strong>Required Scopes for Private Integration:</strong><br>
-                        Ensure your GHL API Token has these scopes enabled or the feed will fail:
+                        Ensure your GHL API Token has these scopes enabled:
                         <ul style="margin-top: 10px; list-style: disc; margin-left: 20px;">
                             <li><code>contacts.write</code></li>
                             <li><code>contacts.readonly</code></li>
                             <li><code>locations/customFields.readonly</code></li>
+                            <li><code>users.readonly</code> (New: Required for User Assignment)</li>
                         </ul>
                     </div>',
                 'fields' => array(
@@ -40,6 +44,38 @@ class GHLFeedAddOn extends GFFeedAddOn {
                 ),
             ),
         );
+    }
+
+    /**
+     * Fetch GHL Users for the assignment dropdown
+     */
+    public function get_ghl_user_choices() {
+        $api_key = $this->get_plugin_setting( 'apiKey' );
+        $loc_id  = $this->get_plugin_setting( 'locationId' );
+
+        $choices = array( array( 'label' => '-- Do Not Assign (Unassigned) --', 'value' => '' ) );
+
+        if ( empty( $api_key ) || empty( $loc_id ) ) return $choices;
+
+        $response = wp_remote_get( "https://services.leadconnectorhq.com/users/?locationId={$loc_id}", array(
+            'headers' => array( 'Authorization' => 'Bearer ' . $api_key, 'Version' => '2021-07-28' ),
+            'timeout' => 15
+        ) );
+
+        if ( is_wp_error( $response ) ) return $choices;
+
+        $body = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( isset( $body['users'] ) && is_array( $body['users'] ) ) {
+            foreach ( $body['users'] as $user ) {
+                $choices[] = array(
+                    'label' => $user['name'] . ' (' . $user['email'] . ')',
+                    'value' => $user['id']
+                );
+            }
+        }
+
+        return $choices;
     }
 
     public function get_ghl_field_choices() {
@@ -57,7 +93,6 @@ class GHLFeedAddOn extends GFFeedAddOn {
             array( 'label' => 'City', 'value' => 'city' ),
             array( 'label' => 'State/Region', 'value' => 'state' ),
             array( 'label' => 'Zip/Postal Code', 'value' => 'postalCode' ),
-            array( 'label' => 'Country', 'value' => 'country' ),
         );
 
         $api_key = $this->get_plugin_setting( 'apiKey' );
@@ -103,7 +138,14 @@ class GHLFeedAddOn extends GFFeedAddOn {
                         'name'        => 'contactTags', 
                         'label'       => 'Automatic Tags', 
                         'type'        => 'text', 
-                        'description' => 'Separate multiple tags with a comma (e.g., <strong>Website Lead, Google Ads</strong>).',
+                        'description' => 'Separate multiple tags with a comma.',
+                    ),
+                    array(
+                        'name'    => 'assignedUserId',
+                        'label'   => 'Assign Contact to User',
+                        'type'    => 'select',
+                        'choices' => $this->get_ghl_user_choices(),
+                        'tooltip' => 'Select a user to own this lead in HighLevel.'
                     ),
                     array(
                         'name'      => 'mappedFields',
@@ -117,7 +159,7 @@ class GHLFeedAddOn extends GFFeedAddOn {
                 ),
             ),
             array(
-                'title'  => 'Note Checklist (Grouped Form Data)',
+                'title'  => 'Note Checklist',
                 'fields' => array(
                     array( 'name' => 'noteFieldsCheckbox', 'label' => 'Include in Note', 'type' => 'checkbox', 'choices' => $form_fields ),
                 ),
@@ -133,12 +175,24 @@ class GHLFeedAddOn extends GFFeedAddOn {
 
         if ( empty( $api_key ) || empty( $loc_id ) ) return;
 
-        $body = array( 'locationId' => $loc_id, 'customFields' => array(), 'tags' => array() );
+        $body = array( 
+            'locationId'   => $loc_id, 
+            'customFields' => array(), 
+            'tags'         => array() 
+        );
         
+        // 1. Tags
         if ( ! empty( rgar( $meta, 'contactTags' ) ) ) {
             $body['tags'] = array_map( 'trim', explode( ',', $meta['contactTags'] ) );
         }
 
+        // 2. NEW: Assigned User
+        $assigned_user_id = rgar( $meta, 'assignedUserId' );
+        if ( ! empty( $assigned_user_id ) ) {
+            $body['assignedTo'] = $assigned_user_id;
+        }
+
+        // 3. Mapping
         $core_keys = array( 'name', 'firstName', 'lastName', 'email', 'phone', 'companyName', 'website', 'address1', 'city', 'state', 'postalCode', 'country' );
         $mappings  = rgar( $meta, 'mappedFields' );
         
@@ -157,10 +211,10 @@ class GHLFeedAddOn extends GFFeedAddOn {
             }
         }
 
+        // 4. Note / Journey Logic
         $tz = wp_timezone();
         $notes = array();
         $journey_text = "";
-
         foreach ( $form['fields'] as $field ) {
             if ( ! rgar( $meta, 'note_field_' . $field->id ) ) continue;
             $val = $this->get_field_value( $form, $entry, $field->id );
@@ -177,10 +231,10 @@ class GHLFeedAddOn extends GFFeedAddOn {
             } else { $notes[] = "{$field->label}: {$val}"; }
         }
 
+        // 5. API Request
         $resp = wp_remote_post( 'https://services.leadconnectorhq.com/contacts/upsert', array(
             'headers' => array( 'Authorization' => 'Bearer ' . $api_key, 'Content-Type' => 'application/json', 'Version' => '2021-07-28' ),
-            'body'    => json_encode( $body ),
-            'timeout' => 25
+            'body'    => json_encode( $body )
         ) );
 
         $res_body = json_decode( wp_remote_retrieve_body($resp), true );
