@@ -2,7 +2,7 @@
 /*
 Plugin Name: Gravity Forms HighLevel (GHL) Gravity Forms Connector
 Description: Connects Gravity Forms to HighLevel V2 API with User Journey tracking.
-Version: 2.2
+Version: 2.3
 Author: Sebo Marketing - Jonny Webb
 */
 
