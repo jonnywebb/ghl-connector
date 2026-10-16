@@ -3,7 +3,7 @@ GFForms::include_feed_addon_framework();
 
 class GHLFeedAddOn extends GFFeedAddOn {
 
-    protected $_version = '2.3';
+    protected $_version = '2.4';
     protected $_min_gravityforms_version = '2.5';
     protected $_slug = 'ghl-connector';
     protected $_path = 'ghl-connector/ghl-connector.php';
@@ -18,6 +18,18 @@ class GHLFeedAddOn extends GFFeedAddOn {
             self::$_instance = new self();
         }
         return self::$_instance;
+    }
+
+    /**
+     * A connection setting for this site: its own value if one is saved,
+     * otherwise the network default (Network Admin > Settings > GHL Connector).
+     */
+    public function get_ghl_setting( $key ) {
+        $value = trim( (string) $this->get_plugin_setting( $key ) );
+        if ( $value === '' && is_multisite() ) {
+            $value = trim( (string) get_site_option( GHL_Connector_Network::option( $key ), '' ) );
+        }
+        return $value;
     }
 
     /**
@@ -39,19 +51,30 @@ class GHLFeedAddOn extends GFFeedAddOn {
                         </ul>
                     </div>',
                 'fields' => array(
-                    array( 'name' => 'apiKey', 'label' => 'Private Integration Token', 'type' => 'text', 'class' => 'large', 'required' => true ),
-                    array( 'name' => 'locationId', 'label' => 'Location ID', 'type' => 'text', 'class' => 'medium', 'required' => true ),
+                    array( 'name' => 'apiKey', 'label' => 'Private Integration Token', 'type' => 'text', 'class' => 'large', 'required' => ! $this->has_network_setting( 'apiKey' ),
+                           'description' => $this->network_setting_note( 'apiKey' ) ),
+                    array( 'name' => 'locationId', 'label' => 'Location ID', 'type' => 'text', 'class' => 'medium', 'required' => ! $this->has_network_setting( 'locationId' ),
+                           'description' => $this->network_setting_note( 'locationId' ) ),
                 ),
             ),
         );
+    }
+
+    private function has_network_setting( $key ) {
+        return is_multisite() && trim( (string) get_site_option( GHL_Connector_Network::option( $key ), '' ) ) !== '';
+    }
+
+    private function network_setting_note( $key ) {
+        if ( ! $this->has_network_setting( $key ) ) return '';
+        return 'Leave blank to use the network setting. Enter a value only if this site uses a different one.';
     }
 
     /**
      * Fetch GHL Users for the assignment dropdown
      */
     public function get_ghl_user_choices() {
-        $api_key = $this->get_plugin_setting( 'apiKey' );
-        $loc_id  = $this->get_plugin_setting( 'locationId' );
+        $api_key = $this->get_ghl_setting( 'apiKey' );
+        $loc_id  = $this->get_ghl_setting( 'locationId' );
 
         $choices = array( array( 'label' => '-- Do Not Assign (Unassigned) --', 'value' => '' ) );
 
@@ -95,8 +118,8 @@ class GHLFeedAddOn extends GFFeedAddOn {
             array( 'label' => 'Zip/Postal Code', 'value' => 'postalCode' ),
         );
 
-        $api_key = $this->get_plugin_setting( 'apiKey' );
-        $loc_id  = $this->get_plugin_setting( 'locationId' );
+        $api_key = $this->get_ghl_setting( 'apiKey' );
+        $loc_id  = $this->get_ghl_setting( 'locationId' );
 
         if ( !empty($api_key) && !empty($loc_id) ) {
             $response = wp_remote_get( "https://services.leadconnectorhq.com/locations/{$loc_id}/customFields?model=contact", array(
@@ -169,8 +192,8 @@ class GHLFeedAddOn extends GFFeedAddOn {
     }
 
     public function process_feed( $feed, $entry, $form ) {
-        $api_key = $this->get_plugin_setting( 'apiKey' );
-        $loc_id  = $this->get_plugin_setting( 'locationId' );
+        $api_key = $this->get_ghl_setting( 'apiKey' );
+        $loc_id  = $this->get_ghl_setting( 'locationId' );
         $meta    = $feed['meta'];
 
         if ( empty( $api_key ) || empty( $loc_id ) ) return;
