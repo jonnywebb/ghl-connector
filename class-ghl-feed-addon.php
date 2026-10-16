@@ -74,11 +74,72 @@ class GHLFeedAddOn extends GFFeedAddOn {
 		return is_multisite() && '' !== trim( (string) get_site_option( GHL_Connector_Network::option( $key ), '' ) );
 	}
 
+	/** True when this site has saved its own value for the setting. */
+	private function has_site_setting( $key ) {
+		return '' !== trim( (string) $this->get_plugin_setting( $key ) );
+	}
+
+	/**
+	 * Under each credential field: which value is in use, and how to switch.
+	 */
 	private function network_setting_note( $key ) {
 		if ( ! $this->has_network_setting( $key ) ) {
 			return '';
 		}
-		return 'Leave blank to use the network setting. Enter a value only if this site uses a different one.';
+		if ( $this->has_site_setting( $key ) ) {
+			return '<strong>This site overrides the network setting.</strong> Clear the field and save to use the network value instead.';
+		}
+		return '<span style="color:#008a20;font-weight:600;">&#10003; Using the network setting.</span> Enter a value only if this site uses a different one.';
+	}
+
+	/**
+	 * Placeholder shown in an empty credential field when the network value
+	 * is in use. The Location ID is not secret, so it is shown; the token is not.
+	 */
+	private function network_placeholder( $key ) {
+		if ( ! $this->has_network_setting( $key ) || $this->has_site_setting( $key ) ) {
+			return '';
+		}
+		if ( 'locationId' === $key ) {
+			return get_site_option( GHL_Connector_Network::option( 'locationId' ), '' ) . '  (network)';
+		}
+		return '••••••••••••••••  (network token)';
+	}
+
+	/**
+	 * One line at the top of the settings section saying where the connection
+	 * comes from, with a link to the network page for super admins.
+	 */
+	private function connection_source_notice() {
+		if ( ! is_multisite() || ( ! $this->has_network_setting( 'apiKey' ) && ! $this->has_network_setting( 'locationId' ) ) ) {
+			return '';
+		}
+
+		$token_site = $this->has_site_setting( 'apiKey' );
+		$loc_site   = $this->has_site_setting( 'locationId' );
+
+		if ( ! $token_site && ! $loc_site ) {
+			$text = 'This site uses the <strong>network</strong> token and Location ID.';
+		} elseif ( $token_site && $loc_site ) {
+			$text = 'This site uses <strong>its own</strong> token and Location ID, not the network ones.';
+		} else {
+			$text = sprintf(
+				'This site uses <strong>its own</strong> %s and the <strong>network</strong> %s.',
+				$token_site ? 'token' : 'Location ID',
+				$token_site ? 'Location ID' : 'token'
+			);
+		}
+
+		if ( current_user_can( 'manage_network_options' ) ) {
+			$text .= sprintf(
+				' <a href="%s">Edit the network settings</a>.',
+				esc_url( network_admin_url( 'settings.php?page=' . GHL_Connector_Network::PAGE ) )
+			);
+		} else {
+			$text .= ' The network settings are managed by a network administrator.';
+		}
+
+		return '<div style="background:#f0f6fc;border-left:4px solid #72aee6;padding:10px 15px;margin-bottom:20px;">' . $text . '</div>';
 	}
 
 	/**
@@ -103,7 +164,7 @@ class GHLFeedAddOn extends GFFeedAddOn {
 		return array(
 			array(
 				'title'       => 'HighLevel API Setup',
-				'description' => '
+				'description' => $this->connection_source_notice() . '
 					<div style="background-color:#f9f9f9;padding:15px;border-left:4px solid #2271b1;margin-bottom:20px;">
 						<strong>Required scopes for your Private Integration token:</strong>
 						<ul style="margin-top:10px;list-style:disc;margin-left:20px;">
@@ -124,6 +185,7 @@ class GHLFeedAddOn extends GFFeedAddOn {
 						'class'             => 'large',
 						'required'          => ! $this->has_network_setting( 'apiKey' ),
 						'description'       => $this->network_setting_note( 'apiKey' ),
+						'placeholder'       => $this->network_placeholder( 'apiKey' ),
 						'feedback_callback' => array( $this, 'validate_credentials_feedback' ),
 					),
 					array(
@@ -133,6 +195,7 @@ class GHLFeedAddOn extends GFFeedAddOn {
 						'class'             => 'medium',
 						'required'          => ! $this->has_network_setting( 'locationId' ),
 						'description'       => $this->network_setting_note( 'locationId' ),
+						'placeholder'       => $this->network_placeholder( 'locationId' ),
 						'feedback_callback' => array( $this, 'validate_credentials_feedback' ),
 					),
 					array(

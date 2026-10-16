@@ -3,7 +3,7 @@
  * Plugin Name: Gravity Forms HighLevel (GHL) Connector
  * Plugin URI:  https://github.com/jonnywebb/ghl-connector
  * Description: Map Gravity Forms fields to HighLevel contacts, notes and pipeline opportunities without a premium plugin. Pairs with Sebo Attribution or Campaign Tracker for lead source.
- * Version:     2.5.1
+ * Version:     2.5.2
  * Author:      Sebo Marketing - Jonny Webb
  * Requires PHP: 7.0
  * License:     GPL-2.0-or-later
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'GHL_CONNECTOR_VERSION',  '2.5.1' );
+define( 'GHL_CONNECTOR_VERSION',  '2.5.2' );
 define( 'GHL_CONNECTOR_FILE',     __FILE__ );
 define( 'GHL_CONNECTOR_PATH',     plugin_dir_path( __FILE__ ) );
 define( 'GHL_CONNECTOR_BASENAME', plugin_basename( __FILE__ ) );

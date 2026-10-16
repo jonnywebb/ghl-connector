@@ -35,6 +35,10 @@ Token and Location ID for every site. Each site's own settings
 (**Forms > Settings > GHL**) override them; leave a site's fields blank to use
 the network values. Feeds are still set up per form on each site.
 
+Each site's settings page says which values it uses (network or its own) and
+links super admins to the network page. Empty fields show the network
+Location ID and a masked token as placeholders.
+
 The saved token is never printed back on the network page: the field shows a
 mask. Leave it to keep the token, paste a new one to replace it, or tick
 "Remove the saved token".
@@ -49,6 +53,9 @@ push to `main`, then publish a GitHub release tagged `ghl-connector-vX.Y.Z`.
 
 ## History
 
+- **2.5.2**: on a multisite, each site's settings page says whether it uses
+  the network token and Location ID or its own, and the empty fields show the
+  network values (the token stays masked).
 - **2.5.1**: one plugin again. The 2.0.0 rewrite (opportunities, typed custom
   fields, credential check, logging, Campaign Tracker journeys) merged with
   2.3's user assignment, 2.5's network settings and GitHub updates, plus Sebo
