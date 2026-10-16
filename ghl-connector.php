@@ -2,14 +2,14 @@
 /*
 Plugin Name: Gravity Forms HighLevel (GHL) Gravity Forms Connector
 Description: Connects Gravity Forms to HighLevel V2 API with User Journey tracking.
-Version: 2.4
+Version: 2.5
 Author: Sebo Marketing - Jonny Webb
 */
 
 // Prevent direct access
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// 1. Initialize the Update Checker (GitHub Private Repo)
+// 1. Initialize the Update Checker (public GitHub repo)
 require 'plugin-update-checker/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
@@ -19,12 +19,7 @@ $myUpdateChecker = PucFactory::buildUpdateChecker(
     'ghl-connector'
 );
 
-// Private repo access: define GHL_CONNECTOR_GITHUB_TOKEN in wp-config.php
-// (a fine-grained token with read-only Contents access to this repo). Without
-// it, update checks against the private repo fail quietly; nothing else breaks.
-if ( defined( 'GHL_CONNECTOR_GITHUB_TOKEN' ) && GHL_CONNECTOR_GITHUB_TOKEN ) {
-    $myUpdateChecker->setAuthentication( GHL_CONNECTOR_GITHUB_TOKEN );
-}
+// The repo is public, so update checks need no token.
 $myUpdateChecker->setBranch('main');
 
 // 2. Network defaults (multisite): one token and location for every site

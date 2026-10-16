@@ -3,7 +3,7 @@ GFForms::include_feed_addon_framework();
 
 class GHLFeedAddOn extends GFFeedAddOn {
 
-    protected $_version = '2.4';
+    protected $_version = '2.5';
     protected $_min_gravityforms_version = '2.5';
     protected $_slug = 'ghl-connector';
     protected $_path = 'ghl-connector/ghl-connector.php';
