@@ -53,7 +53,7 @@ class GHL_Connector_Network {
                             <input type="password" id="ghl_api_key" name="ghl_api_key" class="regular-text" autocomplete="new-password" value="<?php echo $has_token ? esc_attr( self::MASK ) : ''; ?>">
                             <p class="description">
                                 <?php echo $has_token ? 'A token is saved. Leave it as is to keep it, or paste a new one to replace it.' : 'No token saved yet.'; ?>
-                                Scopes: <code>contacts.write</code>, <code>contacts.readonly</code>, <code>locations/customFields.readonly</code>, <code>users.readonly</code>.
+                                Scopes: <code>contacts.write</code>, <code>contacts.readonly</code>, <code>locations/customFields.readonly</code>; <code>users.readonly</code> to assign contacts; <code>opportunities.write</code> and <code>opportunities.readonly</code> for pipelines.
                             </p>
                             <?php if ( $has_token ) : ?>
                                 <label><input type="checkbox" name="ghl_clear_api_key" value="1"> Remove the saved token</label>
